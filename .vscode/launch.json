@@ -1,0 +1,26 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "martin current file",
+            "request": "launch",
+            "runtimeArgs": "${currentFile}",
+            // "runtimeExecutable": "${workspaceFolder}/lua.exe",
+            "stopOnEntry": true,
+            "runtimeExecutable": "/Users/haass/.vscode/extensions/actboy168.lua-debug-2.2.5/runtime/darwin-arm64/lua54/lua",
+            "type": "lua"
+        },
+        {
+            "type": "lua",
+            "request": "attach",
+            "name": "Debug",
+            "client": false,
+            //"address": "[::1]:56789",
+            "address": "127.0.0.1:56789",
+            "internalConsoleOptions": "openOnSessionStart",
+        }
+    ]
+}
