@@ -532,14 +532,9 @@ local function createPureBreaker()
 				printToLogfile('Breakpoint hit at '..tostring(path))
 				printToLogfile('Info:'..valueToString(info))
 				printToLogfile('bpSet:'..valueToString(bpSet))
-				for path,foo in pairs(breakpointsPerPath) do
-					for entry,value in pairs(breakpointsPerPath[path]) do
-						printToLogfile('path:'..tostring(path)..' line:'..tostring(entry)..' value:'..valueToString(value))
-					end
-				end
-
+				printToLogfile('all breakpoints:'..valueToString(breakpointsPerPath))
 				printToLogfile('chunkname:'..chunkNameToPath(info.source,true))
-				coroutine.yield(0.1)
+
 				_G.__halt__()
 			end
 		end
@@ -731,8 +726,7 @@ function debuggee.start(jsonLib, config)
 	if sock.settimeout then sock:settimeout() end
 	sock:setoption('tcp-nodelay', true)
 
-	sock:settimeout(1.0)
-	sock:settimeout(1.1,'t')
+	sock:settimeout()
 	
 	printToLogfile('debuggee connected, waiting for welcome message...')
 	local initMessage = recvMessage()
@@ -880,8 +874,8 @@ end
 
 -------------------------------------------------------------------------------
 _G.__halt__ = function()
-	printToLogfile('_G.__halt__ called, entering debug loop: baseDepth = ')
 	baseDepth = breaker.stackOffset.halt
+	printToLogfile('_G.__halt__ called, entering debug loop: baseDepth = '..tostring(baseDepth))
 	if dumpGMA3 then
 		Echo("lua debugger: _G.__halt__ called")
 	end
@@ -1006,7 +1000,7 @@ function handlers.threads(req)
 		name = (c and tostring(c)) or "main"
 	}
 
-	pprintToLogfile('threads response: ' .. valueToString(mainThread))
+	printToLogfile('threads response: ' .. valueToString(mainThread))
 	sendSuccess(req, {
 		threads = { mainThread }
 	})
@@ -1034,7 +1028,6 @@ function handlers.stackTrace(req)
 		local info = debug_getinfo(i, 'lnS')
 		if (info == nil) then break end
 		--print(json.encode(info))
-
 		local src = info.source
 		if string.sub(src, 1, 2) == '@ ' then
 			src = string.sub(src, 3)

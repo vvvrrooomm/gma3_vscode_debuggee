@@ -5,7 +5,7 @@ function activateDebuggee()
 
     local config = {
         dumpCommunication = true, -- dump communication in debug console
-        dumpGMA3 = true,
+        dumpGMA3 = false,
         controllerHost = "127.0.0.1",
         controllerPort = 56789
     }
