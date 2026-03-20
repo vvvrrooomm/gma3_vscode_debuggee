@@ -337,10 +337,10 @@ end
 -- send log to debug console
 local function logToDebugConsole(output, category)
 	local dumpMsg = {
-		event = 'output',
+		event = (category=='console') and 'debugger' or 'output',
 		type = 'event',
 		body = {
-			category = category or 'console',
+			category = category or 'stdout',
 			output = output
 		}
 	}
@@ -560,7 +560,7 @@ local function sendMessage(msg)
 	local body = json.encode(msg)
 
 	if dumpCommunication then
-		logToDebugConsole('[SENDING] ' .. valueToString(msg))
+		logToDebugConsole('[SENDING] ' .. valueToString(msg),'console')
 	end
 
 	sendFully('Content-Length: ' .. #body .. '\r\n\r\n' .. body)
@@ -600,7 +600,7 @@ local function debugLoop()
 		local msg = recvMessage()
 		if msg then
 			if dumpCommunication then
-				logToDebugConsole('[RECEIVED] ' .. valueToString(msg), 'stderr')
+				logToDebugConsole('[RECEIVED] ' .. valueToString(msg), 'console')
 			end
 
 			local fn = handlers[msg.command]
