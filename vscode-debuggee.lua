@@ -96,25 +96,6 @@ local function searchFileRecursive(path, searchedFile)
 	end
 end
 
-local function valueToString(value, depth)
-	local str = ''
-	depth = depth or 0
-	local t = type(value)
-	if t == 'table' then
-		str = str .. '{\n'
-		for k, v in pairs(value) do
-			local newK = k;
-			str = str .. string.rep('  ', depth + 1) .. '[' .. valueToString(newK) ..']' .. ' = ' .. valueToString(v, depth + 1) .. ',\n'
-		end
-		str = str .. string.rep('  ', depth) .. '}'
-	elseif t == 'string' then
-		str = str .. '"' .. tostring(value) .. '"'
-	else
-		return tostring(value)
-	end
-	return str
-end
-
 -------------------------------------------------------------------------------
 local sethook = debug.sethook
 debug.sethook = nil
@@ -468,12 +449,11 @@ local function createPureBreaker()
 			Echo("splitedReqPath:")
 			gma3_helpers:dump(splitedReqPath)
 		end
-		-- printToLogfile('chunkNameToPath: '..chunkname..' splitted to '..valueToString(splitedReqPath))
+
 		local maxMatchCount = 0
 		local foundPath = nil
 		for path, _ in pairs(breakpointsPerPath) do
 			local splitted = splitChunkName(path)
-			-- printToLogfile('bp chubked path: '..path..' splitted to '..valueToString(splitted))
 			local count = getMatchCount(splitedReqPath, splitted)
 			if dumpGMA3 then
 				Echo("Breakpoint path: "..tostring(path))
@@ -486,7 +466,6 @@ local function createPureBreaker()
 		end
 
 		if foundPath then
-			printToLogfile('chunkNameToPath: '..chunkname..' found path: '..tostring(foundPath))
 			chunknameToPathCache[chunkname] = foundPath
 		end
 		return foundPath
@@ -501,7 +480,6 @@ local function createPureBreaker()
 		end
 		
 		if lineBreakCallback then
-			printToLogfile('line event hook entered. source: '..tostring(debug_getinfo(2, 'S').source)..' currentline: '..tostring(debug_getinfo(2, 'l').currentline))
 			lineBreakCallback()
 		end
 
@@ -510,10 +488,7 @@ local function createPureBreaker()
 			if dumpGMA3 then
 				Echo('source:currentline = '..tostring(info.source)..':'..tostring(info.currentline))
 			end
-			-- MARTIN: DEBUG CODE
-			-- if not string.match(info.source, 'requirements[/\\]json%.lua') then
-			-- printToLogfile('source:currentline = '..tostring(info.source)..':'..tostring(info.currentline))
-			-- end
+
 			local path = chunkNameToPath(info.source)
 			if path then
 				path = string.lower(path)
@@ -521,7 +496,6 @@ local function createPureBreaker()
 			local bpSet = breakpointsPerPath[path]
 
 			if bpSet and bpSet[info.currentline] then
-				printToLogfile('Breakpoint hit at '..tostring(path)..':'..tostring(info.currentline))
 				if dumpGMA3 then
 					Echo("Breakpoint found. Info:")
 					gma3_helpers:dump(info)
@@ -529,11 +503,6 @@ local function createPureBreaker()
 					Echo('current line in breakpoint-set:')
 					gma3_helpers:dump(bpSet)
 				end
-				printToLogfile('Breakpoint hit at '..tostring(path))
-				printToLogfile('Info:'..valueToString(info))
-				printToLogfile('bpSet:'..valueToString(bpSet))
-				printToLogfile('all breakpoints:'..valueToString(breakpointsPerPath))
-				printToLogfile('chunkname:'..chunkNameToPath(info.source,true))
 
 				_G.__halt__()
 			end
@@ -555,14 +524,7 @@ local function createPureBreaker()
 				path = string.lower(path)
 			end
 			breakpointsPerPath[path] = t
-			printToLogfile('Set breakpoints for path: '..path..' lines '..valueToString(lines))
-			printToLogfile('breakpoints:'..valueToString(breakpointsPerPath))
-			 
-			-- for temp_path in pairs(breakpointsPerPath) do
-			-- 	for content_keys in pairs(breakpointsPerPath[temp_path]) do
-			-- 		printToLogfile('breakpoints '..temp_path..' key:'..content_keys..' value:'..valueToString(breakpointsPerPath[temp_path][content_keys]))
-			-- 	end
-			-- end
+
 			for _,ln in pairs(lines) do
 				if file_exists(path) then
 					debuggee.print("output", "Breakpoint set:",path, "(line "..ln..")")
@@ -634,10 +596,8 @@ end
 local function debugLoop()
 	storedVariables = {}
 	nextVarRef = 1
-	printToLogfile('DEBUGEE: entering debug loop')
 	while true do
 		local msg = recvMessage()
-		printToLogfile('DEBUGEE: debug looped received message: ' .. valueToString(msg.command or msg.event))
 		if msg then
 			if dumpCommunication then
 				logToDebugConsole('[RECEIVED] ' .. valueToString(msg), 'stderr')
@@ -695,8 +655,26 @@ function debuggee.start(jsonLib, config)
 	ignoreFirstFrameInC  = config.ignoreFirstFrameInC or false
 	dumpGMA3             = config.dumpGMA3 or false
 	directorySeperator = config.directorySeperator or '/'
-	-- if not config.luaStyleLog then
-	-- 	valueToString = function(value) return json.encode(value) end
+	if not config.luaStyleLog then
+		valueToString = function(value) return json.encode(value) end
+	end
+	-- local function valueToString(value, depth)
+	-- 	local str = ''
+	-- 	depth = depth or 0
+	-- 	local t = type(value)
+	-- 	if t == 'table' then
+	-- 		str = str .. '{\n'
+	-- 		for k, v in pairs(value) do
+	-- 			local newK = k;
+	-- 			str = str .. string.rep('  ', depth + 1) .. '[' .. valueToString(newK) ..']' .. ' = ' .. valueToString(v, depth + 1) .. ',\n'
+	-- 		end
+	-- 		str = str .. string.rep('  ', depth) .. '}'
+	-- 	elseif t == 'string' then
+	-- 		str = str .. '"' .. tostring(value) .. '"'
+	-- 	else
+	-- 		return tostring(value)
+	-- 	end
+	-- 	return str
 	-- end
 
 
@@ -728,12 +706,9 @@ function debuggee.start(jsonLib, config)
 
 	sock:settimeout()
 	
-	printToLogfile('debuggee connected, waiting for welcome message...')
 	local initMessage = recvMessage()
-	printToLogfile('debugee received msg:' .. valueToString(initMessage))
 	assert(initMessage and initMessage.command == 'initialize')
 	local attachMessage = recvMessage()
-	printToLogfile('debugee received attach:' .. valueToString(attachMessage))
 	debuggee.print("output", "____________________________________ START DEBUGGEE ____________________________________")
 	sourceBasePath = attachMessage.arguments.workspaceFolder or attachMessage.arguments.cwd
 
@@ -754,19 +729,14 @@ function debuggee.start(jsonLib, config)
 				})
 		end
 	end
-
-	printToLogfile('debugloop starting')
-
 	sendEvent('initialized', {})
 	debugLoop()
-	printToLogfile('debugloop started successfully')
 	return true, breakerType
 end
 
 -------------------------------------------------------------------------------
 function debuggee.poll()
 	if not sock then return end
-	printToLogfile('debuggee poll called, checking for messages...')
 	-- Processes commands in the queue.
 	-- Immediately returns when the queue is/became empty.
 	while true do
@@ -774,10 +744,8 @@ function debuggee.poll()
 		if e == 'timeout' then break end
 
 		local msg = recvMessage()
-		printToLogfile('debuggee poll received message: ' .. valueToString(msg))
 		if msg then
 			if dumpCommunication then
-				logToDebugConsole('[POLL-RECEIVED] ' .. valueToString(msg), 'stderr')
 			end
 
 			if msg.command == 'pause' then
@@ -857,7 +825,6 @@ end
 
 -------------------------------------------------------------------------------
 local function startDebugLoop()
-	printToLogfile('startDebugLoop called, sending stopped event for breakpoint')
 	sendEvent(
 		'stopped',
 		{
@@ -875,7 +842,6 @@ end
 -------------------------------------------------------------------------------
 _G.__halt__ = function()
 	baseDepth = breaker.stackOffset.halt
-	printToLogfile('_G.__halt__ called, entering debug loop: baseDepth = '..tostring(baseDepth))
 	if dumpGMA3 then
 		Echo("lua debugger: _G.__halt__ called")
 	end
@@ -951,7 +917,6 @@ function handlers.setBreakpoints(req)
 		bpLines[#bpLines + 1] = bp.line
 	end
 
-	printToLogfile('setBreakpoints called for line: ' .. valueToString(req.arguments.breakpoints))
 	local verifiedLines = breaker.setBreakpoints(
 		req.arguments.source.path,
 		bpLines)
@@ -971,14 +936,12 @@ end
 
 
 function handlers.setFunctionBreakpoints(req)
-	printToLogfile('setFunctionBreakpoints called with arguments: ' .. valueToString(req.arguments))
 	sendSuccess(req, {
 		breakpoints = {}
 	})
 end
 
 function handlers.setExceptionBreakpoints(req)
-	printToLogfile('setExceptionBreakpoints called with arguments: ' .. valueToString(req.arguments))
 	sendSuccess(req, {
 		breakpoints = {}
 	})
@@ -992,7 +955,6 @@ end
 
 -------------------------------------------------------------------------------
 function handlers.threads(req)
-	printToLogfile('threads request received')
 	local c = coroutine.running()
 
 	local mainThread = {
@@ -1000,7 +962,6 @@ function handlers.threads(req)
 		name = (c and tostring(c)) or "main"
 	}
 
-	printToLogfile('threads response: ' .. valueToString(mainThread))
 	sendSuccess(req, {
 		threads = { mainThread }
 	})
@@ -1009,13 +970,13 @@ end
 -------------------------------------------------------------------------------
 function handlers.stackTrace(req)
 	assert(req.arguments.threadId == 0)
-
+	
 	local stackFrames = {}
 	local firstFrame = (req.arguments.startFrame or 0) + baseDepth
 	local lastFrame = (req.arguments.levels and (req.arguments.levels ~= 0))
-		and (firstFrame + req.arguments.levels - 1)
-		or (9999)
-
+	and (firstFrame + req.arguments.levels - 1)
+	or (9999)
+	
 	-- if firstframe function of stack is C function, ignore it.
 	if ignoreFirstFrameInC then
 		local info = debug_getinfo(firstFrame, 'lnS')
@@ -1023,7 +984,7 @@ function handlers.stackTrace(req)
 			firstFrame = firstFrame + 1
 		end
 	end
-
+	
 	for i = firstFrame, lastFrame do
 		local info = debug_getinfo(i, 'lnS')
 		if (info == nil) then break end
@@ -1032,7 +993,6 @@ function handlers.stackTrace(req)
 		if string.sub(src, 1, 2) == '@ ' then
 			src = string.sub(src, 3)
 		end
-
 		local name
 		if info.name then
 			name = info.name .. ' (' .. (info.namewhat or '?') .. ')'
@@ -1145,7 +1105,9 @@ function handlers.variables(req)
 				local name, value = debug_getlocal(depth, i)
 				if name == nil then break end
 				addVar(name, value, nil)
+
 			end
+				
 		elseif scopeType == scopeTypes.Upvalues then
 			local info = debug_getinfo(depth, 'f')
 			if info and info.func then
@@ -1187,7 +1149,6 @@ function handlers.variables(req)
 			local info = debug.getinfo(var, 'S')
 			addVar('(source)', tostring(info.short_src), true)
 			addVar('(line)', info.linedefined)
-
 			for i = 1, 9999 do
 				local name, value = debug.getupvalue(var, i)
 				if name == nil then break end
