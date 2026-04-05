@@ -907,7 +907,8 @@ function debuggee.print(category, ...)
 end
 
 -------------------------------------------------------------------------------
--- ★★★ https://github.com/Microsoft/vscode-debugadapter-node/blob/master/protocol/src/debugProtocol.ts
+-- original implementation based on https://github.com/Microsoft/vscode-debugadapter-node/blob/master/protocol/src/debugProtocol.ts
+-- now implements the modern DAP https://microsoft.github.io/debug-adapter-protocol/specification
 -------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------
@@ -1226,29 +1227,46 @@ function handlers.stepOut(req)
 end
 
 -------------------------------------------------------------------------------
-function handlers.evaluate(req)
-	-- 실행할 소스 코드 준비
-	local sourceCode = req.arguments.expression
-	if string.sub(sourceCode, 1, 1) == '!' then
-		sourceCode = string.sub(sourceCode, 2)
-	else
-		sourceCode = 'return (' .. sourceCode .. ')'
+
+-- 실행할 소스 코드 준비
+function prepareSourcecode(expr, tempG)
+	-- expr can bei either assignment or expression. expression is fn(), or 1+1
+	-- wrap expression in return, do not wrap assignment
+	-- 파싱#
+	-- loadstring for Lua 5.1
+	-- load for Lua 5.2 and 5.3(supports the private environment's load function)
+	fn, err = load(expr, 'X', nil, tempG)
+	if fn == nil then
+		fn, err2 = load("return (" .. expr .. ")", 'X', nil, tempG)
+		if fn == nil then
+			err = err2
+		end
 	end
 
+	-- if neither succeeds return first error, it is more clear
+	return fn, err
+end
+
+function handlers.evaluate(req)
 	-- 환경 준비.
 	-- 뭘 요구할지 모르니까 로컬, 업밸류, 글로벌을 죄다 복사해둔다.
 	-- 우선순위는 글로벌-업밸류-로컬 순서니까
-	-- 그 반대로 갖다놓아서 나중 것이 앞의 것을 덮어쓰게 한다. 
+	-- 그 반대로 갖다놓아서 나중 것이 앞의 것을 덮어쓰게 한다.
+
+	if string.match(req.arguments.expression, '^%s*(local)%s+') then
+		sendFailure(req, 'local declarations not supported: ' .. req.arguments.expression)
+		return
+	end
+	local expression = req.arguments.expression
 	local depth = req.arguments.frameId
 	local tempG = {}
 	local declared = {}
-	local function set(k, v)
+	local function set(k, v, level, number)
 		tempG[k] = v
-		declared[k] = true
+		declared[k] = { level, number }
 	end
-
 	for name, value in pairs(_G) do
-		set(name, value)
+		set(name, value, 0)
 	end
 
 	if depth then
@@ -1257,29 +1275,38 @@ function handlers.evaluate(req)
 			for i = 1, 9999 do
 				local name, value = debug.getupvalue(info.func, i)
 				if name == nil then break end
-				set(name, value)
+				set(name, value, depth, i)
 			end
 		end
 
 		for i = 1, 9999 do
 			local name, value = debug_getlocal(depth, i)
 			if name == nil then break end
-			set(name, value)
+			set(name, value, depth, i)
 		end
 	else
 		-- VSCode가 depth를 안 보낼 수도 있다.
 		-- 특정 스택 프레임을 선택하지 않은, 전역 이름만 조회하는 경우이다.
 	end
-	local mt = {
-		__newindex = function() error('assignment not allowed', 2) end,
-		__index = function(t, k) if not declared[k] then error('not declared', 2) end end
-	}
-	setmetatable(tempG, mt)
+	local envProxy = { tempG = tempG }
+	local fn, err = prepareSourcecode(req.arguments.expression, envProxy)
 
-	-- 파싱
-	-- loadstring for Lua 5.1
-	-- load for Lua 5.2 and 5.3(supports the private environment's load function)
-	local fn, err = (loadstring or load)(sourceCode, 'X', nil, tempG)
+	function newindexfunc(self, k, v)
+		local level, number = table.unpack(declared[k] or { -1, -1 })
+		if level > 0 then
+			debug.setlocal(tonumber(level) + 3, tonumber(number), v)
+		else
+			_G[k] = v
+			declared[k] = 0
+		end
+	end
+
+	local mt = {
+		__newindex = newindexfunc,
+		__index = function(t, k) return tempG[k] end
+	}
+	setmetatable(envProxy, mt)
+
 	if fn == nil then
 		sendFailure(req, string.gsub(err, '^%[string %"X%"%]%:%d+%: ', ''))
 		return
@@ -1288,7 +1315,7 @@ function handlers.evaluate(req)
 	-- 실행하고 결과 송신
 	if setfenv ~= nil then
 		-- Only for Lua 5.1
-		setfenv(fn, tempG)
+		setfenv(fn, envProxy)
 	end
 
 	local success, aux = pcall(fn)
@@ -1300,7 +1327,6 @@ function handlers.evaluate(req)
 
 	local varNameCount = {}
 	local item = registerVar(varNameCount, '', aux)
-
 	sendSuccess(req, {
 		result = item.value,
 		type = item.type,
