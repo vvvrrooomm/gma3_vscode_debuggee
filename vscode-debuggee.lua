@@ -1178,6 +1178,50 @@ function handlers.variables(req)
 end
 
 -------------------------------------------------------------------------------
+function handlers.setVariable(req)
+	local varNameCount = {}
+	local varRef = req.arguments.variablesReference
+	local name = req.arguments.name
+	local value = req.arguments.value
+
+	if (varRef >= 1000000) then
+		-- Scope.
+		local depth = math.floor(varRef / 1000000)
+		local scopeType = varRef % 1000000
+		if scopeType == scopeTypes.Locals then
+			for j = 1, 9999 do
+				local n, _ = debug.getlocal(depth, j)
+				if n == nil then break end
+				if n == name then
+					debug.setlocal(depth, j, value)
+					break
+				end
+			end
+		elseif scopeType == scopeTypes.Upvalues then
+			printToLogfile("upvalue" ..
+				scopeType ..
+				"depth: " .. tostring(depth) .. ", name: " .. tostring(name) .. ", value: " .. tostring(value))
+
+			local info = debug_getinfo(depth, 'f')
+			printToLogfile("upvalue")
+			if info and info.func then
+				printToLogfile("upvalue")
+				local result = debug.setupvalue(info.func, name, value)
+				printToLogfile("upvalue res:" .. result)
+			end
+		elseif scopeType == scopeTypes.Globals then
+			_G[name] = value
+		end
+	else
+		sendFailure(req, 'unknown variable reference: ' .. varRef)
+		return
+	end
+	sendSuccess(req, {
+		value = tostring(value)
+	})
+end
+
+-------------------------------------------------------------------------------
 function handlers.continue(req)
 	sendSuccess(req, {})
 	return 'CONTINUE'
