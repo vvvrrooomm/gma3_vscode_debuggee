@@ -4,8 +4,9 @@ function activateDebuggee()
     debuggee = require 'vscode-debuggee'
 
     local config = {
-        dumpCommunication = true, -- dump communication in debug console
+        dumpCommunication = false, -- dump communication in debug console
         dumpGMA3 = false,
+        ignoreFirstFrameInC = true,
         controllerHost = "127.0.0.1",
         controllerPort = 56789
     }
@@ -29,5 +30,6 @@ end
 function Echo(...)
     Printf(...)
 end
+
 ---------------------------------------------------------------------------
 return activateDebuggee

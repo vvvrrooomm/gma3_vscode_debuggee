@@ -328,16 +328,11 @@ local function sendFully(str)
 	end
 end
 
-local function printToLogfile(str)
-		debugOut = io.open ("/Users/haass/test/lua-debug/startup.log" , "a")
-		debugOut:write("DEBUGGEE: "..str .. '\n')
-		debugOut:flush()
-end
 
 -- send log to debug console
 local function logToDebugConsole(output, category)
 	local dumpMsg = {
-		event = (category=='console') and 'debugger' or 'output',
+		event = (category == 'console') and 'debugger' or 'output',
 		type = 'event',
 		body = {
 			category = category or 'stdout',
@@ -637,45 +632,26 @@ function closeSockConnection()
 	end
 end
 
-
 -------------------------------------------------------------------------------
 local sockArray = {}
 function debuggee.start(jsonLib, config)
 	json = jsonLib
 	assert(jsonLib)
 
-	config = config or {}
+	config               = config or {}
 	local connectTimeout = config.connectTimeout or 5.0
 	local controllerHost = config.controllerHost or 'localhost'
 	local controllerPort = config.controllerPort or 56789
 	onError              = config.onError or defaultOnError
-	addUserdataVar		 = config.addUserdataVar or function() return end
+	addUserdataVar       = config.addUserdataVar or function() return end
 	local redirectPrint  = config.redirectPrint or false
 	dumpCommunication    = config.dumpCommunication or false
 	ignoreFirstFrameInC  = config.ignoreFirstFrameInC or false
 	dumpGMA3             = config.dumpGMA3 or false
-	directorySeperator = config.directorySeperator or '/'
+	directorySeperator   = config.directorySeperator or '/'
 	if not config.luaStyleLog then
 		valueToString = function(value) return json.encode(value) end
 	end
-	-- local function valueToString(value, depth)
-	-- 	local str = ''
-	-- 	depth = depth or 0
-	-- 	local t = type(value)
-	-- 	if t == 'table' then
-	-- 		str = str .. '{\n'
-	-- 		for k, v in pairs(value) do
-	-- 			local newK = k;
-	-- 			str = str .. string.rep('  ', depth + 1) .. '[' .. valueToString(newK) ..']' .. ' = ' .. valueToString(v, depth + 1) .. ',\n'
-	-- 		end
-	-- 		str = str .. string.rep('  ', depth) .. '}'
-	-- 	elseif t == 'string' then
-	-- 		str = str .. '"' .. tostring(value) .. '"'
-	-- 	else
-	-- 		return tostring(value)
-	-- 	end
-	-- 	return str
-	-- end
 
 
 	local breakerType
@@ -705,7 +681,7 @@ function debuggee.start(jsonLib, config)
 	sock:setoption('tcp-nodelay', true)
 
 	sock:settimeout()
-	
+
 	local initMessage = recvMessage()
 	assert(initMessage and initMessage.command == 'initialize')
 	local attachMessage = recvMessage()
@@ -934,7 +910,6 @@ function handlers.setBreakpoints(req)
 		breakpoints = breakpoints
 	})
 end
-
 
 function handlers.setFunctionBreakpoints(req)
 	sendSuccess(req, {
@@ -1198,16 +1173,9 @@ function handlers.setVariable(req)
 				end
 			end
 		elseif scopeType == scopeTypes.Upvalues then
-			printToLogfile("upvalue" ..
-				scopeType ..
-				"depth: " .. tostring(depth) .. ", name: " .. tostring(name) .. ", value: " .. tostring(value))
-
 			local info = debug_getinfo(depth, 'f')
-			printToLogfile("upvalue")
 			if info and info.func then
-				printToLogfile("upvalue")
 				local result = debug.setupvalue(info.func, name, value)
-				printToLogfile("upvalue res:" .. result)
 			end
 		elseif scopeType == scopeTypes.Globals then
 			_G[name] = value
