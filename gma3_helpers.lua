@@ -23,9 +23,8 @@ function gma3_helpers:dump(o,recursion)
     elseif type(o) == 'table' then
         local s = '{\n';
         for k,v in pairs(o) do
-            local newK = k;
-            if type(k) ~= 'number' then newK = '"'..k..'"' end
-            s = s .. '    ['..newK..'] = ' .. self:dump(v,true) .. '\n'
+            if type(k) ~= 'number' then k = '"'..k..'"' end
+            s = s .. '    ['..k..'] = ' .. self:dump(v,true) .. '\n'
         end
         s = s .. '\n}';
         if not recursion then

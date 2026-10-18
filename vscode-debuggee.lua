@@ -6,7 +6,7 @@ local socket = require 'socket.core'
 local json
 local handlers = {}
 local sock
-local directorySeperator = package.config:sub(1,1)
+local directorySeperator = package.config:sub(1, 1)
 local sourceBasePath = '.'
 local storedVariables = {}
 local nextVarRef = 1
@@ -23,6 +23,12 @@ local breakpointsPerPath = {}
 
 local onError = nil
 local addUserdataVar = nil
+
+local function Echo(...)
+	if dumpGMA3 then
+		Printf(...)
+	end
+end
 
 local function defaultOnError(e)
 	print('****************************************************')
@@ -68,8 +74,8 @@ local function getGma3Properties(object)
 end
 
 local function file_exists(path)
-	local f=io.open(path,"r")
-	if f~=nil then
+	local f = io.open(path, "r")
+	if f ~= nil then
 		io.close(f)
 		return true;
 	else
@@ -80,12 +86,12 @@ end
 local function searchFileRecursive(path, searchedFile)
 	for file in lfs.dir(path) do
 		if file ~= "." and file ~= ".." then
-			local currentPath = path..'/'..file
+			local currentPath = path .. '/' .. file
 			if file == searchedFile then
 				return currentPath;
 			end
-			local attr = lfs.attributes (currentPath)
-			assert (type(attr) == "table")
+			local attr = lfs.attributes(currentPath)
+			assert(type(attr) == "table")
 			if attr.mode == "directory" then
 				local resPath = searchFileRecursive(currentPath, searchedFile);
 				if resPath then
@@ -95,6 +101,25 @@ local function searchFileRecursive(path, searchedFile)
 		end
 	end
 end
+
+-- local function valueToString(value, depth)
+-- 	local str = ''
+-- 	depth = depth or 0
+-- 	local t = type(value)
+-- 	if t == 'table' then
+-- 		str = str .. '{\n'
+-- 		for k, v in pairs(value) do
+-- 			str = str .. string.rep('  ', depth + 1) .. '[' .. valueToString(k) .. ']' .. ' = ' ..
+-- 				valueToString(v, depth + 1) .. ',\n'
+-- 		end
+-- 		str = str .. string.rep('  ', depth) .. '}'
+-- 	elseif t == 'string' then
+-- 		str = str .. '"' .. tostring(value) .. '"'
+-- 	else
+-- 		str = str .. tostring(value)
+-- 	end
+-- 	return str
+-- end
 
 -------------------------------------------------------------------------------
 local sethook = debug.sethook
@@ -142,20 +167,20 @@ local function getMatchCount(a, b)
 	return n
 end
 if DO_TEST then
-	assert(getMatchCount({'a','b','c'}, {'a','b','c'}) == 3)
-	assert(getMatchCount({'b','c'}, {'a','b','c'}) == 2)
-	assert(getMatchCount({'a','b','c'}, {'b','c'}) == 2)
-	assert(getMatchCount({}, {'a','b','c'}) == 0)
-	assert(getMatchCount({'a','b','c'}, {}) == 0)
-	assert(getMatchCount({'a','b','c'}, {'a','b','c','d'}) == 0)
+	assert(getMatchCount({ 'a', 'b', 'c' }, { 'a', 'b', 'c' }) == 3)
+	assert(getMatchCount({ 'b', 'c' }, { 'a', 'b', 'c' }) == 2)
+	assert(getMatchCount({ 'a', 'b', 'c' }, { 'b', 'c' }) == 2)
+	assert(getMatchCount({}, { 'a', 'b', 'c' }) == 0)
+	assert(getMatchCount({ 'a', 'b', 'c' }, {}) == 0)
+	assert(getMatchCount({ 'a', 'b', 'c' }, { 'a', 'b', 'c', 'd' }) == 0)
 end
 
 local function splitChunkName(s)
 	if string.sub(s, 1, 2) == '@ ' then
 		s = string.sub(s, 3)
-	elseif string.find(s,"@") then
-		local pos = string.find(s,"@")
-		s = string.sub(s, pos+1)
+	elseif string.find(s, "@") then
+		local pos = string.find(s, "@")
+		s = string.sub(s, pos + 1)
 	end
 
 	local a = {}
@@ -201,23 +226,24 @@ function Path.isAbsolute(a)
 	return false
 end
 
-local np_pat1, np_pat2 = ('[^SEP:]+SEP%.%.SEP?'):gsub('SEP', directorySeperator), ('SEP+%.?SEP'):gsub('SEP', directorySeperator)
+local np_pat1, np_pat2 = ('[^SEP:]+SEP%.%.SEP?'):gsub('SEP', directorySeperator),
+	('SEP+%.?SEP'):gsub('SEP', directorySeperator)
 function Path.normpath(path)
 	path = path:gsub('[/\\]', directorySeperator)
 
 	if directorySeperator == '\\' then
 		local unc = ('SEPSEP'):gsub('SEP', directorySeperator) -- UNC
-		if path:match('^'..unc) then
-			return unc..Path.normpath(path:sub(3))
+		if path:match('^' .. unc) then
+			return unc .. Path.normpath(path:sub(3))
 		end
 	end
 
 	local k
 	repeat -- /./ -> /
-		path,k = path:gsub(np_pat2, directorySeperator)
+		path, k = path:gsub(np_pat2, directorySeperator)
 	until k == 0
 	repeat -- A/../ -> (empty)
-		path,k = path:gsub(np_pat1, '', 1)
+		path, k = path:gsub(np_pat1, '', 1)
 	until k == 0
 	if path == '' then
 		path = '.'
@@ -265,11 +291,11 @@ local function getPathFromFileName(src)
 		end
 	end
 
-	if dumpGMA3 then 
+	if dumpGMA3 then
 		if foundPath then
-			Echo("Path found in breakpointsPerPath: "..foundPath)
+			Echo("Path found in breakpointsPerPath: " .. foundPath)
 		else
-			Echo("Path not found in breakpointsPerPath:"..src)
+			Echo("Path not found in breakpointsPerPath:" .. src)
 			gma3_helpers:dump(breakpointsPerPath)
 		end
 	end
@@ -285,7 +311,7 @@ local function getPathFromFileName(src)
 			path = foundFilePath;
 		end
 		if not file_exists(path) then
-			debuggee.print("warning", "File doesn't exist:",path)
+			debuggee.print("warning", "File doesn't exist:", path)
 		end
 	end
 	return path
@@ -340,7 +366,7 @@ local function logToDebugConsole(output, category)
 		}
 	}
 	local dumpBody = json.encode(dumpMsg)
-    sendFully('Content-Length: ' .. #dumpBody .. '\r\n\r\n' .. dumpBody)
+	sendFully('Content-Length: ' .. #dumpBody .. '\r\n\r\n' .. dumpBody)
 end
 
 -- pure mode {{{
@@ -429,7 +455,7 @@ local function createPureBreaker()
 	local chunknameToPathCache = {}
 	breakpointsPerPath = {} -- reset
 
-	local function chunkNameToPath(chunkname,dumpGMA3)
+	local function chunkNameToPath(chunkname, dumpGMA3)
 		local cached = chunknameToPathCache[chunkname]
 		if cached then
 			if dumpGMA3 then
@@ -440,7 +466,7 @@ local function createPureBreaker()
 		end
 		local splitedReqPath = splitChunkName(chunkname)
 		if dumpGMA3 then
-			Echo("chunkname: "..chunkname)
+			Echo("chunkname: " .. chunkname)
 			Echo("splitedReqPath:")
 			gma3_helpers:dump(splitedReqPath)
 		end
@@ -451,8 +477,8 @@ local function createPureBreaker()
 			local splitted = splitChunkName(path)
 			local count = getMatchCount(splitedReqPath, splitted)
 			if dumpGMA3 then
-				Echo("Breakpoint path: "..tostring(path))
-				Echo("MatchCount -> "..tostring(count))
+				Echo("Breakpoint path: " .. tostring(path))
+				Echo("MatchCount -> " .. tostring(count))
 			end
 			if (count > maxMatchCount) then
 				maxMatchCount = count
@@ -473,7 +499,7 @@ local function createPureBreaker()
 		if dumpGMA3 then
 			Echo("lua debugger: line event hook entered.")
 		end
-		
+
 		if lineBreakCallback then
 			lineBreakCallback()
 		end
@@ -481,7 +507,7 @@ local function createPureBreaker()
 		local info = debug_getinfo(2, 'Sl')
 		if info then
 			if dumpGMA3 then
-				Echo('source:currentline = '..tostring(info.source)..':'..tostring(info.currentline))
+				Echo('source:currentline = ' .. tostring(info.source) .. ':' .. tostring(info.currentline))
 			end
 
 			local path = chunkNameToPath(info.source)
@@ -494,7 +520,7 @@ local function createPureBreaker()
 				if dumpGMA3 then
 					Echo("Breakpoint found. Info:")
 					gma3_helpers:dump(info)
-					Echo("chunkNameToPath result = "..chunkNameToPath(info.source,true))
+					Echo("chunkNameToPath result = " .. chunkNameToPath(info.source, true))
 					Echo('current line in breakpoint-set:')
 					gma3_helpers:dump(bpSet)
 				end
@@ -520,11 +546,11 @@ local function createPureBreaker()
 			end
 			breakpointsPerPath[path] = t
 
-			for _,ln in pairs(lines) do
+			for _, ln in pairs(lines) do
 				if file_exists(path) then
-					debuggee.print("output", "Breakpoint set:",path, "(line "..ln..")")
+					debuggee.print("output", "Breakpoint set:", path, "(line " .. ln .. ")")
 				else
-					debuggee.print("error", "Breakpoint path wrong:",path, "(line "..ln..")")
+					debuggee.print("error", "Breakpoint path wrong:", path, "(line " .. ln .. ")")
 				end
 			end
 			return verifiedLines
@@ -555,7 +581,7 @@ local function sendMessage(msg)
 	local body = json.encode(msg)
 
 	if dumpCommunication then
-		logToDebugConsole('[SENDING] ' .. valueToString(msg),'console')
+		logToDebugConsole('[SENDING] ' .. valueToString(msg), 'console')
 	end
 
 	sendFully('Content-Length: ' .. #body .. '\r\n\r\n' .. body)
@@ -568,16 +594,16 @@ local function recvMessage()
 		-- 디버거가 떨어진 상황
 		return nil
 	end
-	
+
 	if (string.sub(header, 1, 16) ~= 'Content-Length: ') then
 		error('wrong header: ' .. header)
 	end
-	local pos,pos_end = string.find(header,'%d+', 16)
+	local pos, pos_end = string.find(header, '%d+', 16)
 	if not pos then
 		error('Invalid protocol. length not found in header: ' .. header)
 	end
-	
-	local length = tonumber(header:sub(pos, pos_end))+2-- 4 is the length of \r\n\r\n
+
+	local length = tonumber(header:sub(pos, pos_end)) + 2 -- 4 is the length of \r\n\r\n
 	if not length then
 		error('Invalid protocol.')
 	end
@@ -652,7 +678,6 @@ function debuggee.start(jsonLib, config)
 	if not config.luaStyleLog then
 		valueToString = function(value) return json.encode(value) end
 	end
-
 
 	local breakerType
 
@@ -790,7 +815,7 @@ end
 
 -------------------------------------------------------------------------------
 local function currentThreadId()
---[[
+	--[[
 	local threadId = 0
 	if coroutine.running() then
 	end
@@ -878,7 +903,7 @@ function debuggee.print(category, ...)
 		'output',
 		{
 			category = categoryVscodeConsole,
-			output =  table.concat(t, '\t') .. '\n'  -- Same as default "print" output end new line.
+			output = table.concat(t, '\t') .. '\n' -- Same as default "print" output end new line.
 		})
 end
 
@@ -898,7 +923,7 @@ function handlers.setBreakpoints(req)
 		req.arguments.source.path,
 		bpLines)
 
-		local breakpoints = {}
+	local breakpoints = {}
 	for i, ln in ipairs(bpLines) do
 		breakpoints[i] = {
 			verified = (verifiedLines[ln] ~= nil),
@@ -946,13 +971,13 @@ end
 -------------------------------------------------------------------------------
 function handlers.stackTrace(req)
 	assert(req.arguments.threadId == 0)
-	
+
 	local stackFrames = {}
 	local firstFrame = (req.arguments.startFrame or 0) + baseDepth
 	local lastFrame = (req.arguments.levels and (req.arguments.levels ~= 0))
-	and (firstFrame + req.arguments.levels - 1)
-	or (9999)
-	
+		and (firstFrame + req.arguments.levels - 1)
+		or (9999)
+
 	-- if firstframe function of stack is C function, ignore it.
 	if ignoreFirstFrameInC then
 		local info = debug_getinfo(firstFrame, 'lnS')
@@ -960,7 +985,7 @@ function handlers.stackTrace(req)
 			firstFrame = firstFrame + 1
 		end
 	end
-	
+
 	for i = firstFrame, lastFrame do
 		local info = debug_getinfo(i, 'lnS')
 		if (info == nil) then break end
@@ -1052,7 +1077,7 @@ local function registerVar(varNameCount, name_, value, noQuote)
 
 	if (ty == 'table') or
 		(ty == 'function') or
-		 (ty == 'userdata') then
+		(ty == 'userdata') then
 		storedVariables[nextVarRef] = value
 		item.variablesReference = nextVarRef
 		nextVarRef = nextVarRef + 1
@@ -1081,9 +1106,7 @@ function handlers.variables(req)
 				local name, value = debug_getlocal(depth, i)
 				if name == nil then break end
 				addVar(name, value, nil)
-
 			end
-				
 		elseif scopeType == scopeTypes.Upvalues then
 			local info = debug_getinfo(depth, 'f')
 			if info and info.func then
@@ -1132,13 +1155,13 @@ function handlers.variables(req)
 			end
 		elseif type(var) == 'userdata' then
 			addUserdataVar(var, addVar)
-			
+
 			local gma3_properties = getGma3Properties(var)
 			for propName, propContent in pairs(gma3_properties) do
-				addVar(propName,propContent)
+				addVar(propName, propContent)
 			end
 			local gma3_children = getGma3Children(var)
-			addVar("(children)",gma3_children)
+			addVar("(children)", gma3_children)
 		end
 
 		local mt = getmetatable(var)

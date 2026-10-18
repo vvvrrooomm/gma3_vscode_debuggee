@@ -6,9 +6,9 @@ function activateDebuggee()
     local config = {
         dumpCommunication = false, -- dump communication in debug console
         dumpGMA3 = false,
-        ignoreFirstFrameInC = true,
-        controllerHost = "127.0.0.1",
-        controllerPort = 56789
+        -- ignoreFirstFrameInC = true,
+        -- controllerHost = "127.0.0.1", -- if need to overwrite  address of the debug adapter
+        -- controllerPort = 56789
     }
 
     if (HostType() == "Linux" or HostType() == "Console") then
@@ -25,10 +25,6 @@ function activateDebuggee()
     Printf('debuggee breakertype: ' .. tostring(breakerType))
     Printf('debuggee startresult: ' .. tostring(startResult))
     return debuggee;
-end
-
-function Echo(...)
-    Printf(...)
 end
 
 ---------------------------------------------------------------------------
